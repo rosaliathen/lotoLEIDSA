@@ -834,10 +834,12 @@ async function loadData() {
   try {
     const resp = await fetch(url);
     const text = await resp.text();
-    // Limpiar prefijo de Google
-    const json = JSON.parse(text.replace(/^.*?google\.visualization\.Query\.setResponse\(/, '').replace(/\);?\s*$/, ''));
-    
-    if (json.status !== 'ok') throw new Error('Sheet no accesible');
+    // Google gviz devuelve /*O_o*/ google.visualization.Query.setResponse({...});
+    // Extraemos solo el objeto JSON del interior
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Respuesta inesperada de Google Sheets. Verifica que la Sheet sea pública.');
+    const json = JSON.parse(jsonMatch[0]);
+    if (json.status !== 'ok') throw new Error('Sheet no accesible. Verifica que esté compartida como pública.');
     
     const rows = json.table.rows;
 
@@ -881,11 +883,15 @@ async function loadData() {
     
   } catch(e) {
     document.getElementById('loadingState').innerHTML = `
-      <div style="color:var(--red);font-family:'DM Mono',monospace;font-size:12px;text-align:center">
-        ERROR AL CARGAR DATOS<br>
-        <span style="color:var(--muted);font-size:10px;margin-top:8px;display:block">
-          Verifica que la Google Sheet sea pública y tenga la hoja "Historial"<br>
-          ${e.message}
+      <div style="color:var(--red);font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:20px">
+        ❌ ERROR AL CARGAR DATOS<br><br>
+        <span style="color:var(--muted);font-size:11px;line-height:1.8;display:block">
+          ${e.message}<br><br>
+          Pasos para solucionar:<br>
+          1. Abre la Google Sheet<br>
+          2. Clic en Compartir → Acceso general<br>
+          3. Selecciona "Cualquier persona con el enlace" → Lector<br>
+          4. Recarga esta página
         </span>
       </div>`;
   }
