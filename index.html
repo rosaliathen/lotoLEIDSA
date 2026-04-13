@@ -771,7 +771,7 @@ const SHEET_ID = '1tPeVcxJDtWnbebeLCfSg6miANpzdbAAD5nUq0o-Qc10';
 const SHEET_NAME = 'Historial';
 const BOLETO_API = 'https://api.elboletoganador.com/api/sorteos/buscar/historial?id=9&fecha=';
 // Webhook hardcodeado — actualizar aquí si cambia la URL del Apps Script
-let WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyWqSokeXnmVjBjy8xvemLIHaxMWP4ea_IfxbJmSsXcsHkImr6z-pY7Qsew0MlaFV3X2w/exec';
+let WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzc9Q_Jyg5NYo5Wj86P-WQFUyK-9U6Fi6cySzd4HttP4hDW33WvNLAL91Lky30b8Dd2DQ/exec';
 
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
 let allData = [];
@@ -840,11 +840,28 @@ async function loadData() {
     if (json.status !== 'ok') throw new Error('Sheet no accesible');
     
     const rows = json.table.rows;
+
+    // Helper: convierte cualquier formato de fecha de gviz a YYYY-MM-DD
+    function parseFecha(raw) {
+      if (!raw) return '';
+      const s = String(raw);
+      // Formato "Date(2015,0,3)" — mes es 0-indexed
+      if (s.includes('Date(')) {
+        const parts = s.replace('Date(','').replace(')','').split(',').map(Number);
+        const y = parts[0];
+        const m = String(parts[1] + 1).padStart(2, '0'); // +1 porque es 0-indexed
+        const d = String(parts[2]).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      // Ya es YYYY-MM-DD u otro string
+      return s;
+    }
+
     allData = rows.map(row => {
       const c = row.c;
       return {
         numero_sorteo: c[0]?.v || '',
-        fecha: c[1]?.v || '',
+        fecha: parseFecha(c[1]?.v),
         dia_semana: c[2]?.v || '',
         n1: parseInt(c[3]?.v) || 0,
         n2: parseInt(c[4]?.v) || 0,
@@ -854,10 +871,10 @@ async function loadData() {
         n6: parseInt(c[8]?.v) || 0,
         mas: parseInt(c[9]?.v) || 0,
       };
-    }).filter(r => r.n1 > 0);
+    }).filter(r => r.n1 > 0 && r.fecha !== '');
 
-    // Ordenar por fecha
-    allData.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    // Ordenar cronológicamente ASC — más antiguo primero
+    allData.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
     
     computeStats();
     renderAll();
@@ -1105,6 +1122,7 @@ function renderHeatmap() {
 function renderAll() {
   if (allData.length === 0) return;
 
+  // allData ya está ordenado ASC desde loadData
   const first = allData[0];
   const last = allData[allData.length - 1];
   
