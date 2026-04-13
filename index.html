@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEIDSA Loto — Analizador de Combinaciones</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #e8c84a;
+    --accent2: #ff6b35;
+    --accent3: #4af0c8;
+    --text: #e8e8f0;
+    --muted: #666680;
+    --red: #ff4444;
+    --green: #44ff88;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(232,200,74,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 90% 80%, rgba(74,240,200,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  header {
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .logo-block h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 8vw, 80px);
+    letter-spacing: 4px;
+    line-height: 0.9;
+    background: linear-gradient(135deg, var(--accent) 0%, #fff 60%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo-block .subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .header-meta {
+    text-align: right;
+  }
+
+  .next-sorteo {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--accent3);
+    letter-spacing: 1px;
+  }
+
+  .btn-update {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-update:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .btn-update.loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+
+  .btn-update.loading .spinner { display: block; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* STATUS BAR */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .stat-pill .val {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* MAIN GRID */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    padding: 32px 0;
+  }
+
+  @media (max-width: 768px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* SECTION TITLES */
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* COMBINACIONES */
+  .combos-section {}
+
+  .combo-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn-generate {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    padding: 12px 32px;
+    cursor: pointer;
+    transition: all 0.15s;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  }
+
+  .btn-generate:hover {
+    background: #fff;
+    transform: translateY(-1px);
+  }
+
+  .btn-generate:active { transform: translateY(0); }
+
+  .combo-mode {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mode-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .mode-btn.active {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    background: rgba(74,240,200,0.05);
+  }
+
+  /* COMBO CARDS */
+  .combos-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .combo-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: border-color 0.2s;
+    animation: slideIn 0.3s ease both;
+  }
+
+  .combo-card:hover { border-color: var(--accent); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .combo-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--border);
+    width: 32px;
+    line-height: 1;
+  }
+
+  .combo-card:nth-child(1) .combo-rank { color: var(--accent); }
+  .combo-card:nth-child(2) .combo-rank { color: var(--muted); }
+  .combo-card:nth-child(3) .combo-rank { color: #8B6914; }
+
+  .combo-numbers {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .ball {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .ball.hot {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    box-shadow: 0 0 12px rgba(255,107,53,0.2);
+  }
+
+  .ball.warm {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(232,200,74,0.15);
+  }
+
+  .ball.cold {
+    border-color: var(--accent3);
+    color: var(--accent3);
+  }
+
+  .ball.mas-ball {
+    border-style: dashed;
+    border-color: var(--muted);
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .combo-score {
+    text-align: right;
+    min-width: 60px;
+  }
+
+  .score-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    color: var(--accent3);
+  }
+
+  .score-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* FRECUENCIA WIDGET */
+  .freq-widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+  }
+
+  .freq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .freq-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+
+  .freq-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .freq-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .freq-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+
+  .freq-count {
+    color: var(--muted);
+    font-size: 10px;
+    width: 24px;
+    text-align: right;
+  }
+
+  /* ULTIMOS SORTEOS */
+  .sorteos-widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+  }
+
+  .sorteo-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+
+  .sorteo-item:last-child { border-bottom: none; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .sorteo-fecha {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .sorteo-nums {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+
+  .mini-ball {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text);
+  }
+
+  .mini-ball.mas {
+    border-style: dashed;
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* HEATMAP */
+  .heatmap-section {
+    padding: 0 0 32px;
+  }
+
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 6px;
+  }
+
+  .hm-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    cursor: default;
+    transition: transform 0.15s;
+    gap: 2px;
+  }
+
+  .hm-cell:hover { transform: scale(1.1); z-index: 2; position: relative; }
+
+  .hm-num { font-size: 14px; font-weight: 500; }
+  .hm-cnt { font-size: 9px; opacity: 0.7; }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    padding: 20px 0 40px;
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    line-height: 1.8;
+    text-align: center;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 12px 20px;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.3s;
+    pointer-events: none;
+    max-width: 320px;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  /* LOADING STATE */
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    flex-direction: column;
+    gap: 16px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  .loading-bar {
+    width: 200px;
+    height: 2px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .loading-fill {
+    height: 100%;
+    background: var(--accent);
+    animation: loadFill 1.5s ease-in-out infinite;
+  }
+
+  @keyframes loadFill {
+    0% { width: 0%; margin-left: 0%; }
+    50% { width: 60%; margin-left: 20%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  /* SCRIPT BOX */
+  .script-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 16px;
+    margin: 16px 0;
+  }
+
+  .script-box pre {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  .config-section {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .config-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    width: 100%;
+    max-width: 500px;
+    margin-top: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .config-input:focus { border-color: var(--accent); }
+
+  .config-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .btn-save-config {
+    margin-top: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--accent3);
+    color: var(--accent3);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .btn-save-config:hover { background: var(--accent3); color: var(--bg); }
+
+  .info-text {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div class="logo-block">
+        <h1>LEIDSA<br>LOTO</h1>
+        <div class="subtitle">Analizador de combinaciones · aifotos</div>
+      </div>
+      <div class="header-meta">
+        <div class="next-sorteo" id="nextSorteo">Próximo sorteo: calculando...</div>
+        <button class="btn-update" id="btnUpdate" onclick="updateData()">
+          <span class="spinner" id="updateSpinner"></span>
+          ↻ Actualizar datos
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div class="stat-pill">
+      <span class="dot"></span>
+      <span>Base de datos</span>
+      <span class="val" id="totalSorteos">—</span>
+    </div>
+    <div class="stat-pill">
+      <span>Rango</span>
+      <span class="val" id="rangoFechas">—</span>
+    </div>
+    <div class="stat-pill">
+      <span>Último sorteo</span>
+      <span class="val" id="ultimoSorteo">—</span>
+    </div>
+    <div class="stat-pill">
+      <span>Número más frecuente</span>
+      <span class="val" id="numMasFrecuente">—</span>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid" id="mainContent">
+    <div class="loading-state" id="loadingState">
+      <div>CARGANDO BASE DE DATOS</div>
+      <div class="loading-bar"><div class="loading-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- HEATMAP -->
+  <div class="heatmap-section" id="heatmapSection" style="display:none">
+    <div class="section-title">Mapa de Calor — Todos los Números</div>
+    <div class="heatmap-grid" id="heatmapGrid"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#ff4444"></div> Muy frecuente</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div> Frecuente</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e8c84a"></div> Normal</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2a2a3a"></div> Poco frecuente</div>
+    </div>
+  </div>
+
+  <!-- CONFIGURACION APPS SCRIPT -->
+  <div class="config-section" id="configSection">
+    <div class="section-title">Configuración Auto-Actualización</div>
+    <p class="info-text">
+      Para que el botón "Actualizar datos" guarde automáticamente en tu Google Sheet,
+      necesitas crear un Apps Script y pegar la URL del webhook aquí.
+    </p>
+    <div style="margin-top:16px">
+      <div class="config-label">URL del Apps Script (Web App)</div>
+      <input type="text" class="config-input" id="webhookUrl" 
+             placeholder="https://script.google.com/macros/s/TU_ID/exec"
+             value="">
+      <br>
+      <button class="btn-save-config" onclick="saveConfig()">Guardar configuración</button>
+    </div>
+    <div style="margin-top: 20px;">
+      <div class="config-label" style="margin-bottom:8px">Apps Script — pegar en Extensiones → Apps Script de tu Google Sheet</div>
+      <div class="script-box">
+        <pre id="appsScriptCode"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    ⚠ Este sistema analiza frecuencias históricas del Loto LEIDSA (2015–2026). Las combinaciones generadas son estadísticas, no predicciones. La lotería es un juego de azar puro. Juega responsablemente.
+    <br>Datos: El Boleto Ganador · Desarrollado por aifotos
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIGURACIÓN ───────────────────────────────────────────────────────────
+const SHEET_ID = '1tPeVcxJDtWnbebeLCfSg6miANpzdbAAD5nUq0o-Qc10';
+const SHEET_NAME = 'Historial';
+const BOLETO_API = 'https://api.elboletoganador.com/api/sorteos/buscar/historial?id=9&fecha=';
+
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let allData = [];
+let freqMap = {};
+let pairMap = {};
+let recentFreqMap = {};
+let mode = 'balanced'; // balanced | hot | cold
+
+// ─── APPS SCRIPT CODE ─────────────────────────────────────────────────────────
+const appsScriptCode = `function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Historial');
+  var params = e.parameter;
+  
+  if (params.action === 'add') {
+    // Verificar si ya existe el numero_sorteo
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] == params.numero_sorteo) {
+        return ContentService.createTextOutput(JSON.stringify({status:'exists'}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    // Agregar nueva fila
+    sheet.appendRow([
+      params.numero_sorteo,
+      params.fecha,
+      params.dia_semana,
+      params.n1, params.n2, params.n3,
+      params.n4, params.n5, params.n6,
+      params.mas
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({status:'added'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({status:'ok'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+document.getElementById('appsScriptCode').textContent = appsScriptCode;
+
+// Cargar webhook guardado
+const savedWebhook = localStorage.getItem('leidsa_webhook');
+if (savedWebhook) document.getElementById('webhookUrl').value = savedWebhook;
+
+function saveConfig() {
+  const url = document.getElementById('webhookUrl').value.trim();
+  localStorage.setItem('leidsa_webhook', url);
+  showToast('Configuración guardada', 'success');
+}
+
+// ─── CARGA DE DATOS DESDE GOOGLE SHEETS ──────────────────────────────────────
+async function loadData() {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+  
+  try {
+    const resp = await fetch(url);
+    const text = await resp.text();
+    // Limpiar prefijo de Google
+    const json = JSON.parse(text.replace(/^.*?google\.visualization\.Query\.setResponse\(/, '').replace(/\);?\s*$/, ''));
+    
+    if (json.status !== 'ok') throw new Error('Sheet no accesible');
+    
+    const rows = json.table.rows;
+    allData = rows.map(row => {
+      const c = row.c;
+      return {
+        numero_sorteo: c[0]?.v || '',
+        fecha: c[1]?.v || '',
+        dia_semana: c[2]?.v || '',
+        n1: parseInt(c[3]?.v) || 0,
+        n2: parseInt(c[4]?.v) || 0,
+        n3: parseInt(c[5]?.v) || 0,
+        n4: parseInt(c[6]?.v) || 0,
+        n5: parseInt(c[7]?.v) || 0,
+        n6: parseInt(c[8]?.v) || 0,
+        mas: parseInt(c[9]?.v) || 0,
+      };
+    }).filter(r => r.n1 > 0);
+
+    // Ordenar por fecha
+    allData.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    
+    computeStats();
+    renderAll();
+    
+  } catch(e) {
+    document.getElementById('loadingState').innerHTML = `
+      <div style="color:var(--red);font-family:'DM Mono',monospace;font-size:12px;text-align:center">
+        ERROR AL CARGAR DATOS<br>
+        <span style="color:var(--muted);font-size:10px;margin-top:8px;display:block">
+          Verifica que la Google Sheet sea pública y tenga la hoja "Historial"<br>
+          ${e.message}
+        </span>
+      </div>`;
+  }
+}
+
+// ─── CÁLCULO DE ESTADÍSTICAS ──────────────────────────────────────────────────
+function computeStats() {
+  freqMap = {};
+  pairMap = {};
+  recentFreqMap = {};
+  
+  const total = allData.length;
+  const recent90 = allData.slice(-45); // últimos 45 sorteos ≈ 90 días
+
+  for (let i = 1; i <= 38; i++) {
+    freqMap[i] = 0;
+    recentFreqMap[i] = 0;
+  }
+
+  // Frecuencia global
+  allData.forEach(row => {
+    const nums = [row.n1, row.n2, row.n3, row.n4, row.n5, row.n6];
+    nums.forEach(n => { if (n > 0 && n <= 38) freqMap[n]++; });
+    
+    // Pares
+    for (let i = 0; i < nums.length; i++) {
+      for (let j = i + 1; j < nums.length; j++) {
+        const key = `${nums[i]}-${nums[j]}`;
+        pairMap[key] = (pairMap[key] || 0) + 1;
+      }
+    }
+  });
+
+  // Frecuencia reciente (mayor peso)
+  recent90.forEach(row => {
+    const nums = [row.n1, row.n2, row.n3, row.n4, row.n5, row.n6];
+    nums.forEach(n => { if (n > 0 && n <= 38) recentFreqMap[n]++; });
+  });
+}
+
+// ─── GENERACIÓN DE COMBINACIONES ─────────────────────────────────────────────
+function scoreNumber(n) {
+  const globalFreq = freqMap[n] || 0;
+  const recentFreq = recentFreqMap[n] || 0;
+  const totalSorteos = allData.length;
+  const expectedFreq = (totalSorteos * 6) / 38;
+  
+  // Score normalizado: frecuencia global + peso extra para recientes
+  const globalScore = globalFreq / expectedFreq;
+  const recentScore = recentFreq / ((45 * 6) / 38);
+  
+  if (mode === 'hot') return globalScore * 0.5 + recentScore * 0.5;
+  if (mode === 'cold') return 2 - globalScore;
+  // balanced: mezcla
+  return globalScore * 0.6 + recentScore * 0.4;
+}
+
+function scorePair(a, b) {
+  const key1 = a < b ? `${a}-${b}` : `${b}-${a}`;
+  return pairMap[key1] || 0;
+}
+
+function generateCombination(seed) {
+  const nums = Array.from({length: 38}, (_, i) => i + 1);
+  
+  // Puntuar cada número
+  const scored = nums.map(n => ({
+    n,
+    score: scoreNumber(n) + (Math.random() * 0.3 * seed) // variabilidad
+  }));
+  
+  scored.sort((a, b) => b.score - a.score);
+  
+  // Selección ponderada: tomar de los top 20 con probabilidad proporcional
+  const pool = scored.slice(0, mode === 'cold' ? 38 : 20);
+  const selected = [];
+  const usedIdx = new Set();
+  
+  while (selected.length < 6) {
+    const totalScore = pool.reduce((s, p, i) => usedIdx.has(i) ? s : s + Math.max(0.1, p.score), 0);
+    let rand = Math.random() * totalScore;
+    for (let i = 0; i < pool.length; i++) {
+      if (usedIdx.has(i)) continue;
+      rand -= Math.max(0.1, pool[i].score);
+      if (rand <= 0) {
+        selected.push(pool[i].n);
+        usedIdx.add(i);
+        break;
+      }
+    }
+  }
+  
+  selected.sort((a, b) => a - b);
+  
+  // Calcular score total de la combinación
+  let comboScore = 0;
+  for (const n of selected) comboScore += scoreNumber(n);
+  for (let i = 0; i < selected.length; i++)
+    for (let j = i + 1; j < selected.length; j++)
+      comboScore += scorePair(selected[i], selected[j]) * 0.1;
+  
+  // Bola Más (1-12)
+  const masFreqs = {};
+  for (let i = 1; i <= 12; i++) masFreqs[i] = 0;
+  allData.forEach(r => { if (r.mas >= 1 && r.mas <= 12) masFreqs[r.mas]++; });
+  const masArr = Object.entries(masFreqs).sort((a,b) => b[1]-a[1]);
+  const topMas = masArr.slice(0, 6);
+  const masBall = parseInt(topMas[Math.floor(Math.random() * topMas.length)][0]);
+
+  return { numbers: selected, mas: masBall, score: Math.round(comboScore * 10) / 10 };
+}
+
+function generateCombinations() {
+  const combos = [];
+  const seen = new Set();
+  let attempts = 0;
+  
+  while (combos.length < 5 && attempts < 200) {
+    const combo = generateCombination(attempts * 0.1);
+    const key = combo.numbers.join('-');
+    if (!seen.has(key)) {
+      seen.add(key);
+      combos.push(combo);
+    }
+    attempts++;
+  }
+  
+  combos.sort((a, b) => b.score - a.score);
+  return combos;
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function getHeat(n) {
+  const avg = (allData.length * 6) / 38;
+  const freq = freqMap[n] || 0;
+  if (freq >= avg * 1.2) return 'hot';
+  if (freq >= avg * 0.9) return 'warm';
+  return 'cold';
+}
+
+function renderBalls(numbers, mas) {
+  return numbers.map(n => `
+    <div class="ball ${getHeat(n)}" title="Sale ${freqMap[n]||0} veces">${n < 10 ? '0'+n : n}</div>
+  `).join('') + (mas ? `<div class="ball mas-ball" title="Bola Más">M${mas}</div>` : '');
+}
+
+function renderCombos() {
+  const combos = generateCombinations();
+  const maxScore = combos[0]?.score || 1;
+  
+  const html = combos.map((c, i) => `
+    <div class="combo-card" style="animation-delay:${i * 0.07}s">
+      <div class="combo-rank">${i + 1}</div>
+      <div class="combo-numbers">${renderBalls(c.numbers, c.mas)}</div>
+      <div class="combo-score">
+        <div class="score-val">${Math.round((c.score / maxScore) * 99)}</div>
+        <div class="score-label">Score</div>
+      </div>
+    </div>
+  `).join('');
+  
+  document.getElementById('combosGrid').innerHTML = html;
+}
+
+function renderFreqSidebar() {
+  const sorted = Object.entries(freqMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+  
+  const maxF = sorted[0]?.[1] || 1;
+  
+  const hotHtml = sorted.map(([n, f]) => `
+    <div class="freq-item">
+      <div class="freq-num ball ${getHeat(parseInt(n))}" style="width:28px;height:28px;font-size:10px">${parseInt(n)<10?'0'+n:n}</div>
+      <div class="freq-bar-wrap">
+        <div class="freq-bar" style="width:${(f/maxF*100).toFixed(0)}%;background:${getHeat(parseInt(n))==='hot'?'var(--accent2)':getHeat(parseInt(n))==='warm'?'var(--accent)':'var(--accent3)'}"></div>
+      </div>
+      <div class="freq-count">${f}</div>
+    </div>
+  `).join('');
+  
+  document.getElementById('freqList').innerHTML = hotHtml;
+}
+
+function renderRecentSorteos() {
+  const recent = [...allData].reverse().slice(0, 8);
+  const html = recent.map(r => {
+    const nums = [r.n1,r.n2,r.n3,r.n4,r.n5,r.n6];
+    const balls = nums.map(n => `<div class="mini-ball">${n<10?'0'+n:n}</div>`).join('');
+    const masBall = r.mas ? `<div class="mini-ball mas">${r.mas}</div>` : '';
+    return `
+      <div class="sorteo-item">
+        <div class="sorteo-fecha">${r.dia_semana || ''} ${r.fecha}</div>
+        <div class="sorteo-nums">${balls}${masBall}</div>
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('sorteosList').innerHTML = html;
+}
+
+function renderHeatmap() {
+  const maxF = Math.max(...Object.values(freqMap));
+  const minF = Math.min(...Object.values(freqMap));
+  
+  const html = Array.from({length: 38}, (_, i) => i + 1).map(n => {
+    const f = freqMap[n] || 0;
+    const t = (f - minF) / (maxF - minF);
+    
+    const r = Math.round(42 + t * (255 - 42));
+    const g = Math.round(42 + t * (68 - 42) * (1 - t) + t * t * 15);
+    const b = Math.round(63 + t * (53 - 63));
+    
+    // Color gradient: dark gray → yellow-orange → red
+    let bg;
+    if (t < 0.33) bg = `rgba(42,42,58,${0.5 + t * 1.5})`;
+    else if (t < 0.66) bg = `rgba(232,${Math.round(200 - (t-0.33)*300)},74,0.8)`;
+    else bg = `rgba(255,${Math.round(107 - (t-0.66)*200)},53,0.9)`;
+    
+    const textColor = t > 0.4 ? '#0a0a0f' : 'var(--text)';
+    
+    return `
+      <div class="hm-cell" style="background:${bg};color:${textColor}" title="Número ${n}: ${f} veces">
+        <div class="hm-num">${n < 10 ? '0'+n : n}</div>
+        <div class="hm-cnt">${f}×</div>
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('heatmapGrid').innerHTML = html;
+  document.getElementById('heatmapSection').style.display = 'block';
+}
+
+function renderAll() {
+  if (allData.length === 0) return;
+
+  const first = allData[0];
+  const last = allData[allData.length - 1];
+  
+  // Status bar
+  document.getElementById('totalSorteos').textContent = `${allData.length} sorteos`;
+  document.getElementById('rangoFechas').textContent = `${first.fecha} → ${last.fecha}`;
+  document.getElementById('ultimoSorteo').textContent = `${last.fecha} · ${[last.n1,last.n2,last.n3,last.n4,last.n5,last.n6].join('-')}`;
+  
+  const topNum = Object.entries(freqMap).sort((a,b) => b[1]-a[1])[0];
+  document.getElementById('numMasFrecuente').textContent = `${topNum[0]} (${topNum[1]}×)`;
+  
+  // Next sorteo
+  updateNextSorteo();
+  
+  // Main grid
+  document.getElementById('mainContent').innerHTML = `
+    <div class="combos-section">
+      <div class="section-title">Combinaciones Sugeridas</div>
+      <div class="combo-controls">
+        <button class="btn-generate" onclick="renderCombos()">⚡ GENERAR</button>
+        <div class="combo-mode">
+          <button class="mode-btn ${mode==='balanced'?'active':''}" onclick="setMode('balanced')">Balanceado</button>
+          <button class="mode-btn ${mode==='hot'?'active':''}" onclick="setMode('hot')">Calientes</button>
+          <button class="mode-btn ${mode==='cold'?'active':''}" onclick="setMode('cold')">Fríos</button>
+        </div>
+      </div>
+      <div class="combos-grid" id="combosGrid">
+        <div style="color:var(--muted);font-family:'DM Mono',monospace;font-size:12px;padding:20px 0">
+          Presiona GENERAR para crear combinaciones
+        </div>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="freq-widget">
+        <div class="section-title" style="font-size:16px">Top 10 Frecuentes</div>
+        <div class="freq-list" id="freqList"></div>
+      </div>
+      <div class="sorteos-widget">
+        <div class="section-title" style="font-size:16px">Últimos Sorteos</div>
+        <div id="sorteosList"></div>
+      </div>
+    </div>
+  `;
+  
+  renderFreqSidebar();
+  renderRecentSorteos();
+  renderHeatmap();
+}
+
+// ─── MODO ─────────────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderCombos();
+}
+
+// ─── PRÓXIMO SORTEO ───────────────────────────────────────────────────────────
+function updateNextSorteo() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Dom, 3=Mie, 6=Sab
+  
+  let next = new Date(now);
+  let daysUntil = 0;
+  
+  // Próximo miércoles o sábado
+  const targets = [3, 6];
+  let minDays = 7;
+  for (const t of targets) {
+    let d = t - day;
+    if (d < 0) d += 7;
+    if (d === 0) d = 7; // ya pasó hoy (después de las 8:55pm)
+    if (d < minDays) minDays = d;
+  }
+  
+  next.setDate(now.getDate() + minDays);
+  const opts = { weekday: 'long', day: 'numeric', month: 'short' };
+  document.getElementById('nextSorteo').textContent = 
+    `Próximo sorteo: ${next.toLocaleDateString('es-DO', opts)} · 8:55 PM`;
+}
+
+// ─── ACTUALIZAR DATOS ─────────────────────────────────────────────────────────
+async function updateData() {
+  const btn = document.getElementById('btnUpdate');
+  btn.classList.add('loading');
+  btn.querySelector('.spinner').style.display = 'block';
+  
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const resp = await fetch(BOLETO_API + today);
+    const data = await resp.json();
+    const hist = data.historial;
+    
+    if (!hist || hist.length === 0) {
+      showToast('No hay sorteos nuevos disponibles', '');
+      return;
+    }
+    
+    // Tomar el sorteo más reciente
+    const latest = hist[0];
+    const lastInDB = allData[allData.length - 1];
+    
+    if (latest.numero_sorteo === String(lastInDB?.numero_sorteo)) {
+      showToast('Los datos ya están actualizados ✓', 'success');
+      return;
+    }
+    
+    const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const nums = latest.premios.split('-');
+    const fechaObj = new Date(latest.fecha_sorteo + 'T12:00:00');
+    
+    const newRow = {
+      numero_sorteo: latest.numero_sorteo,
+      fecha: latest.fecha_sorteo,
+      dia_semana: dias[fechaObj.getDay()],
+      n1: parseInt(nums[0]),
+      n2: parseInt(nums[1]),
+      n3: parseInt(nums[2]),
+      n4: parseInt(nums[3]),
+      n5: parseInt(nums[4]),
+      n6: parseInt(nums[5]),
+      mas: latest.loto1 || 0,
+    };
+    
+    // Intentar guardar en Google Sheet via webhook
+    const webhookUrl = localStorage.getItem('leidsa_webhook');
+    if (webhookUrl) {
+      const params = new URLSearchParams({
+        action: 'add',
+        numero_sorteo: newRow.numero_sorteo,
+        fecha: newRow.fecha,
+        dia_semana: newRow.dia_semana,
+        n1: newRow.n1, n2: newRow.n2, n3: newRow.n3,
+        n4: newRow.n4, n5: newRow.n5, n6: newRow.n6,
+        mas: newRow.mas
+      });
+      
+      await fetch(`${webhookUrl}?${params.toString()}`);
+      showToast(`Sorteo ${newRow.fecha} guardado en Sheet ✓`, 'success');
+    } else {
+      showToast('Nuevo sorteo encontrado. Configura el webhook para guardarlo en Sheet.', '');
+    }
+    
+    // Actualizar en memoria
+    allData.push(newRow);
+    computeStats();
+    renderAll();
+    
+  } catch(e) {
+    showToast('Error al actualizar: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.querySelector('.spinner').style.display = 'none';
+  }
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
